@@ -28,6 +28,8 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.development
+.env.production
 
 # vercel
 .vercel
@@ -41,6 +43,26 @@ next-env.d.ts
 .idea/
 *.swp
 *.swo
+.cursor/
 
 # OS
-Thumbs.db 
+Thumbs.db
+
+# logs
+*.log
+.npm
+
+# runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# temp folders
+.temp/
+.tmp/
+
+# API keys and secrets (extra safety)
+*.key
+*.pem
+.env.backup 
