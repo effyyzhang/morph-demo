@@ -1,0 +1,243 @@
+---
+title: "Document-Wide Edits with Plate.js + Morph"
+description: "Build lightning-fast document transformation features using Morph Apply with Plate.js rich text editors"
+---
+
+# Document-Wide Edits with Plate.js + Morph
+
+## Why Morph + Plate.js?
+
+While Plate.js excels at local content generation and improvements, **Morph Apply is purpose-built for fast, document-wide transformations**. This combination gives you:
+
+- **Lightning Speed**: Transform entire documents at 2000+ tokens/second
+- **Document-Wide Scope**: Restructure, reformat, and transform complete documents
+- **Consistent Results**: Apply uniform changes across all content simultaneously
+- **Custom-Trained for Code**: Optimized for file and document transformations
+
+## Quick Setup
+
+First, install the required dependencies:
+
+```bash
+npm install @udecode/plate-common @udecode/plate-markdown @udecode/plate-basic-nodes
+```
+
+Get your Morph API key from the [Morph Dashboard](https://docs.morphllm.com/) and add it to your environment:
+
+```bash
+MORPH_API_KEY=your_morph_api_key_here
+```
+
+## Core Implementation
+
+### 1. Define Your Transformations
+
+Create a constants file with your transformation prompts:
+
+```typescript lib/constants.ts
+export const TRANSFORMS = {
+  restructure: 'Reorganize with clear headings and logical flow',
+  summarize: 'Add executive summary and key insights',
+  simplify: 'Rewrite using simpler language',
+} as const;
+```
+
+### 2. Create the Morph API Route
+
+Create a streaming API route to showcase Morph's speed:
+
+```typescript app/api/morph/route.ts
+import OpenAI from 'openai';
+
+const morph = new OpenAI({
+  apiKey: process.env.MORPH_API_KEY!,
+  baseURL: 'https://api.morphllm.com/v1',
+});
+
+export async function POST(req: Request) {
+  const { document, transformation } = await req.json();
+
+  const stream = await morph.chat.completions.create({
+    model: 'morph-v2',
+    messages: [{
+      role: 'user',
+      content: `<code>${document}</code>\n<update>${transformation}</update>`
+    }],
+    stream: true,
+  });
+
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          controller.enqueue(encoder.encode(content));
+        }
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(readable, {
+    headers: { 'Transfer-Encoding': 'chunked' },
+  });
+}
+```
+
+### 3. Build the Document Editor
+
+```tsx components/MorphDocumentEditor.tsx
+'use client';
+
+import { Plate, PlateContent, createPlateEditor } from '@udecode/plate-common/react';
+import { MarkdownPlugin } from '@udecode/plate-markdown';
+import { basicNodesPlugins } from '@udecode/plate-basic-nodes';
+import { useState } from 'react';
+import { TRANSFORMS } from '@/lib/constants';
+
+export function MorphDocumentEditor() {
+  const [editor] = useState(() => createPlateEditor({
+    plugins: [...basicNodesPlugins, MarkdownPlugin],
+  }));
+  const [isTransforming, setIsTransforming] = useState(false);
+
+  const handleTransform = async (transformKey: keyof typeof TRANSFORMS) => {
+    setIsTransforming(true);
+    
+    const document = editor.api.markdown.serialize();
+    
+    const response = await fetch('/api/morph', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        document,
+        transformation: TRANSFORMS[transformKey],
+      }),
+    });
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let result = '';
+
+    while (true) {
+      const { done, value } = await reader!.read();
+      if (done) break;
+      result += decoder.decode(value);
+    }
+    
+    const newNodes = editor.api.markdown.deserialize(result);
+    editor.children = newNodes;
+    editor.onChange();
+    
+    setIsTransforming(false);
+  };
+
+  return (
+    <div className="h-screen flex">
+      <div className="flex-1">
+        <Plate editor={editor}>
+          <PlateContent 
+            className="h-full p-6 focus:outline-none"
+            placeholder="Start writing your document here..."
+          />
+        </Plate>
+      </div>
+
+      <div className="w-64 border-l bg-gray-50 p-4">
+        <h3 className="font-semibold mb-4">Morph Transformations</h3>
+        
+        {Object.entries(TRANSFORMS).map(([key, description]) => (
+          <button
+            key={key}
+            onClick={() => handleTransform(key as keyof typeof TRANSFORMS)}
+            disabled={isTransforming}
+            className="w-full mb-2 p-3 bg-white border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            <div className="font-medium capitalize">{key}</div>
+            <div className="text-xs text-gray-500 mt-1">{description}</div>
+          </button>
+        ))}
+
+        {isTransforming && (
+          <div className="mt-4 p-3 bg-blue-100 rounded-lg text-blue-700 text-sm">
+            ⚡ Streaming from Morph...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+## Streaming Benefits
+
+The implementation above automatically streams all transformations, giving you:
+
+- **Real-time feedback**: Users see content being generated as it happens
+- **Perceived speed**: Streaming feels faster even for the same total time
+- **Large document handling**: No timeout issues with long documents
+- **Morph's advantage**: Showcases the 2000+ tokens/second speed
+
+## Key Benefits
+
+<Card title="Lightning Fast" icon="zap">
+  Transform entire documents at **2000+ tokens per second** with Morph's optimized architecture
+</Card>
+
+<Card title="Document-Wide Scope" icon="file-text">
+  Handle complete document restructuring that's impossible with local AI approaches
+</Card>
+
+<Card title="Consistent Results" icon="check-circle">
+  Apply uniform changes across all content sections simultaneously
+</Card>
+
+<Card title="Perfect Integration" icon="puzzle">
+  Seamlessly integrates with Plate.js's existing markdown serialization
+</Card>
+
+## Production Best Practices
+
+<Warning>
+  Always implement proper error handling and user feedback for transformation operations.
+</Warning>
+
+### Error Handling
+
+```tsx
+// Add to your transform function
+try {
+  const result = await transform(document, transformKey);
+  if (result) {
+    // Success - update document
+  }
+} catch (error) {
+  // Show user-friendly error message
+  setError('Transformation failed. Please try again.');
+}
+```
+
+### Document Backup
+
+```tsx
+// Save document state before transformation
+const originalContent = editor.api.markdown.serialize();
+// Store in history for undo functionality
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Morph API Reference" icon="book" href="https://docs.morphllm.com/">
+    Explore the full Morph API documentation
+  </Card>
+  
+  <Card title="Plate.js Documentation" icon="edit" href="https://platejs.org/">
+    Learn more about Plate.js rich text editor
+  </Card>
+</CardGroup>
+
+<Tip>
+  Start with the basic integration, then add streaming and custom transformations as your application grows. The combination of Plate.js + Morph gives you both local AI assistance and powerful document-wide transformations.
+</Tip> 
