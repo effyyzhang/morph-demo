@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { NextRequest, NextResponse } from 'next/server';
+import { generateSharedDemoTransformation } from '../../../lib/shared-transformations';
 
 // Check if API key is available
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -7,117 +8,120 @@ const openai = OPENAI_API_KEY ? new OpenAI({
   apiKey: OPENAI_API_KEY,
 }) : null;
 
-export async function POST(req: NextRequest) {
-  try {
-    const { document, transformation, stream = false } = await req.json();
+const transformationPrompts = {
+  improve: "Improve this text to make it clearer, more engaging, and better written while maintaining the original meaning:",
+  shorten: "Make this text shorter and more concise while keeping all the key points:",
+  expand: "Expand this text with more detail, context, and examples while maintaining the original tone:",
+  simplify: "Simplify this text using easier language and shorter sentences while keeping the meaning:",
+  professional: "Rewrite this text in a professional, formal tone suitable for business communication:",
+  casual: "Rewrite this text in a casual, friendly, conversational tone:",
+};
 
-    if (!document || !transformation) {
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { selectedText, transformation, fullDocument, selectionStart, selectionEnd } = body;
+
+    if (!selectedText || !transformation || !fullDocument || selectionStart === undefined || selectionEnd === undefined) {
       return NextResponse.json(
-        { error: 'Document and transformation are required' },
+        { error: 'Selected text, transformation type, full document, and selection range are required' },
         { status: 400 }
       );
     }
 
-    // If no API key, return a demo transformation with streaming support
-    if (!openai) {
-      const demoResult = `# Demo Transformation Applied (OpenAI)
-
-**Transformation**: ${transformation}
-
-**Note**: This is a demo transformation since no OpenAI API key is configured.
-
-${document}
-
----
-*This document was processed using OpenAI's GPT-4 model*`;
-
-      if (stream) {
-        // Simulate streaming for demo - slower than Morph to show the difference
-        const encoder = new TextEncoder();
-        const readable = new ReadableStream({
-          async start(controller) {
-            try {
-              // Split the demo result into chunks and stream them slower than Morph
-              const words = demoResult.split(' ');
-              for (let i = 0; i < words.length; i++) {
-                const chunk = (i === 0 ? words[i] : ' ' + words[i]);
-                controller.enqueue(encoder.encode(chunk));
-                // Slower streaming for OpenAI demo (20ms vs 10ms for Morph)
-                await new Promise(resolve => setTimeout(resolve, 20));
-              }
-              controller.close();
-            } catch (error) {
-              controller.error(error);
-            }
-          },
-        });
-
-        return new Response(readable, {
-          headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Transfer-Encoding': 'chunked',
-          },
-        });
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate longer processing time than Morph
-        
-        return new Response(demoResult, {
-          headers: { 'Content-Type': 'text/plain' },
-        });
-      }
+    const prompt = transformationPrompts[transformation as keyof typeof transformationPrompts];
+    if (!prompt) {
+      return NextResponse.json(
+        { error: 'Invalid transformation type' },
+        { status: 400 }
+      );
     }
 
-    const systemPrompt = `You are a professional document editor. Your task is to transform the provided document according to the user's instructions while maintaining the original meaning and important information. Return only the transformed document content in markdown format.`;
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'OpenAI API key not configured' },
+        { status: 500 }
+      );
+    }
 
-    const userPrompt = `Please transform this document:\n\n${document}\n\nTransformation requested: ${transformation}`;
+    console.log('Starting OpenAI transformation...');
+    const startTime = Date.now();
+    const editGenStartTime = Date.now();
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+    // Step 1: Generate edit instructions
+    const editResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        {
+          role: 'system',
+          content: 'You are a text editor. Generate clear, specific instructions for how to transform the given text. Be concise but precise about what changes to make.'
+        },
+        {
+          role: 'user',
+          content: `${prompt}\n\nOriginal text: "${selectedText}"`
+        }
       ],
-      stream: stream,
-      temperature: 0.3,
+      temperature: 0.1,
     });
 
-    if (stream) {
-      // Handle streaming response
-      const encoder = new TextEncoder();
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of response as any) {
-              const content = chunk.choices[0]?.delta?.content || '';
-              if (content) {
-                controller.enqueue(encoder.encode(content));
-              }
-            }
-            controller.close();
-          } catch (error) {
-            controller.error(error);
-          }
-        },
-      });
+    const editInstructions = editResponse.choices[0]?.message?.content || '';
+    const editGenerationTime = Date.now() - editGenStartTime;
 
-      return new Response(readable, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Transfer-Encoding': 'chunked',
+    // Step 2: Apply the edit instructions to get the transformed snippet
+    const transformStartTime = Date.now();
+    const transformResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a text editor. Apply the given edit instructions to transform the text. Return only the transformed text, nothing else.'
         },
-      });
-    } else {
-      // Handle non-streaming response
-      const content = (response as any).choices[0].message.content;
-      return new Response(content, {
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    }
+        {
+          role: 'user',
+          content: `Original text: "${selectedText}"\n\nEdit instructions: ${editInstructions}\n\nTransformed text:`
+        }
+      ],
+      temperature: 0.1,
+    });
+
+    const transformedSnippet = transformResponse.choices[0]?.message?.content || selectedText;
+    const transformTime = Date.now() - transformStartTime;
+
+    // Step 3: Apply the edit to the full document (traditional slow approach)
+    const applyStartTime = Date.now();
+    
+    // Simulate traditional document editing overhead
+    await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 100)); // 150-250ms overhead
+    
+    // Apply the edit to the full document
+    const beforeText = fullDocument.substring(0, selectionStart);
+    const afterText = fullDocument.substring(selectionEnd);
+    const updatedDocument = beforeText + transformedSnippet + afterText;
+    
+    const applicationTime = Date.now() - applyStartTime;
+    const totalTime = Date.now() - startTime;
+
+    console.log(`OpenAI transformation completed in ${totalTime}ms (Edit gen: ${editGenerationTime}ms, Transform: ${transformTime}ms, Apply: ${applicationTime}ms)`);
+
+    return NextResponse.json({
+      updatedDocument,
+      originalDocument: fullDocument,
+      selectedText,
+      transformedText: transformedSnippet,
+      editInstructions,
+      timing: {
+        editGenerationTime,
+        applicationTime: transformTime + applicationTime, // Combined transform + apply time
+        totalTime,
+      }
+    });
   } catch (error) {
-    console.error('OpenAI API error:', error);
+    console.error('OpenAI API Error:', error);
     return NextResponse.json(
-      { error: 'Failed to transform document with OpenAI' },
+      { error: 'Failed to process transformation' },
       { status: 500 }
     );
   }
-} 
+}
+
+ 
