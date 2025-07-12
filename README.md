@@ -1,4 +1,4 @@
-# Morph Demo Collection
+# Morph E2B Demo
 
 <div align="center">
   
@@ -10,9 +10,9 @@
 
 </div>
 
-A collection of interactive demos showcasing **Morph's** lightning-fast AI code editing and transformation capabilities. These demos highlight how Morph's specialized AI models can dramatically accelerate development workflows while maintaining exceptional accuracy.
+An interactive demo showcasing **Morph's** lightning-fast AI code editing and transformation capabilities. This demo highlights how Morph's specialized AI models can dramatically accelerate development workflows while maintaining exceptional accuracy.
 
-## 🚀 Featured Demos
+## 🚀 Featured Demo
 
 ### 🤖 [Morph E2B - AI React App Builder](./morph-e2b/)
 An AI-powered React application builder that creates complete single-page applications through natural language conversation.
@@ -26,21 +26,6 @@ An AI-powered React application builder that creates complete single-page applic
 **Tech Stack:** Next.js 15, TypeScript, Morph API, OpenAI GPT-3.5, E2B, Vercel AI SDK
 
 [**→ Explore the Demo**](./morph-e2b/)
-
----
-
-### 📝 [Document Editor with AI Transformations](https://github.com/morphllm/morph-quickstarts/tree/main/document-wide-edits-with-plate)
-A sophisticated Notion-like document editor demonstrating Morph's content transformation capabilities.
-
-**Key Features:**
-- **🔄 Side-by-Side Speed Comparison**: OpenAI GPT-4 vs Morph processing speed
-- **📄 Rich Text Editing**: Powered by Plate.js with modern document features  
-- **⚡ 7 Transformation Types**: Restructure, summarize, expand, simplify, academic, business, tutorial
-- **📊 Performance Metrics**: Real-time timing measurements showing Morph's speed advantage
-
-**Tech Stack:** Next.js 14, TypeScript, Plate.js, Morph API, OpenAI GPT-4, Radix UI
-
-[**→ View in Morph Quickstarts**](https://github.com/morphllm/morph-quickstarts/tree/main/document-wide-edits-with-plate)
 
 ## ⚡ Why Morph?
 
@@ -102,14 +87,13 @@ A sophisticated Notion-like document editor demonstrating Morph's content transf
 
 ```
 morph-demo/
-├── README.md                    # This file - overview of all demos
-├── .gitignore                   # Git ignore rules for the collection
-├── morph-e2b/                   # AI React App Builder demo
-│   ├── README.md                # Demo-specific documentation
-│   ├── app/                     # Next.js application
-│   ├── lib/                     # Utilities and storage
-│   └── package.json             # Dependencies and scripts
-└── [Additional demos coming soon...]
+├── README.md                    # This file - project overview
+├── .gitignore                   # Git ignore rules
+└── morph-e2b/                   # AI React App Builder demo
+    ├── README.md                # Demo-specific documentation
+    ├── app/                     # Next.js application
+    ├── lib/                     # Utilities and storage
+    └── package.json             # Dependencies and scripts
 ```
 
 ## 🎯 Use Cases Demonstrated
