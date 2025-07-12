@@ -175,8 +175,8 @@ DO NOT omit spans of pre-existing code without using the // ... existing code ..
   },
 });
 
-// Tool for executing code
-const executeCodeTool = tool({
+// Create a factory function that accepts the request URL
+const createExecuteCodeTool = (requestUrl?: string) => tool({
   description: 'Execute the current application code to show live preview',
   parameters: z.object({}),
   execute: async () => {
@@ -190,7 +190,21 @@ const executeCodeTool = tool({
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/e2b`, {
+      // Use the request URL to construct the API endpoint
+      let apiUrl: string;
+      if (requestUrl) {
+        const url = new URL(requestUrl);
+        apiUrl = `${url.protocol}//${url.host}/api/e2b`;
+        console.log('Using request-based URL:', apiUrl);
+      } else if (process.env.NEXT_PUBLIC_APP_URL) {
+        apiUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/e2b`;
+        console.log('Using env variable URL:', apiUrl);
+      } else {
+        apiUrl = 'http://localhost:3000/api/e2b';
+        console.log('Using default URL:', apiUrl);
+      }
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
@@ -246,7 +260,7 @@ export async function POST(req: NextRequest) {
         createFile: createFileTool,
         // showUpdate: showUpdateTool, // Commented out for production
         editFile: editFileTool,
-        executeCode: executeCodeTool,
+        executeCode: createExecuteCodeTool(req.url),
       },
       maxSteps: 5,
       system: `You are an expert React developer that creates beautiful, modern single-page applications.
