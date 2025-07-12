@@ -2,7 +2,7 @@
 
 import { useChat } from 'ai/react';
 import { useState, useEffect } from 'react';
-import { ToolInvocation } from 'ai';
+import type { ToolInvocation } from 'ai';
 
 export default function Home() {
   const [currentCode, setCurrentCode] = useState('');
@@ -60,9 +60,9 @@ export default function Home() {
   }, [messages]);
 
   return (
-    <div className="flex h-screen bg-[#0e1015]">
+    <div className="flex h-screen bg-[#0e1015] overflow-hidden">
       {/* Left Side - Code & Preview */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Tab Bar */}
         <div className="h-10 bg-[#1a1d23] border-b border-[#2a2d35] flex items-center justify-between px-4">
           <div className="flex items-center gap-2 text-sm">
@@ -82,9 +82,9 @@ export default function Home() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex">
+        <div className="flex-1 flex overflow-hidden">
           {/* Code Editor */}
-          <div className="w-1/2 bg-[#0e1015] border-r border-[#2a2d35]">
+          <div className="w-1/2 bg-[#0e1015] border-r border-[#2a2d35] overflow-hidden">
             {currentCode ? (
               <div className="h-full overflow-auto">
                 <pre className="p-4 text-sm font-mono text-gray-300">
@@ -103,7 +103,7 @@ export default function Home() {
           </div>
 
           {/* Preview */}
-          <div className="w-1/2 bg-white">
+          <div className="w-1/2 bg-white overflow-hidden">
             {executionResult?.results?.outputs?.[0]?.type === 'html' ? (
               <iframe 
                 srcDoc={executionResult.results.outputs[0].html}
@@ -136,7 +136,7 @@ export default function Home() {
       </div>
 
       {/* Right Side - Chat */}
-      <div className="w-96 bg-[#1a1d23] border-l border-[#2a2d35] flex flex-col">
+      <div className="w-96 bg-[#1a1d23] border-l border-[#2a2d35] flex flex-col overflow-hidden">
         {/* Chat Header */}
         <div className="p-4 border-b border-[#2a2d35]">
           <h2 className="text-white font-semibold">React App Builder</h2>
